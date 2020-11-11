@@ -1,1 +1,1 @@
-SourceForgePackage('giflib', 'giflib', '4.1.6')
+SourceForgePackage('giflib', 'giflib', '5.1.4')
