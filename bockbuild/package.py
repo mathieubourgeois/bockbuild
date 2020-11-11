@@ -499,7 +499,7 @@ class Package:
                 archs = ['darwin-64', 'darwin-arm64']
             elif self.m32_only:
                 archs = ['darwin-32']
-            else
+            else:
                 archs = [arch]
 
             if (len(archs) > 1 and self.needs_lipo):
