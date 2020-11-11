@@ -219,7 +219,7 @@ index 0dc31e6..41d1ee7 100644
    gtk_icon_size_lookup_for_settings (settings, size, &icon_width, NULL);
 
 -  return (gdouble) gdk_pixbuf_get_width (icon) / icon_width;
-+  return round ((gdouble) gdk_pixbuf_get_width (icon) / icon_width);
++  return (gdouble) gdk_pixbuf_get_width (icon) / icon_width;
  }
 
  GdkPixbuf*
