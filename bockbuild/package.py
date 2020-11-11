@@ -487,38 +487,55 @@ class Package:
 
         if self.needs_build:
             verbose(self.buildstring)
-            if (arch == 'darwin-universal' and self.needs_lipo):
-                workspace_x86 = workspace + '-x86'
-                workspace_x64 = workspace + '-x64'
+            
+            # Check which archs are actually needed
+            if arch == 'darwin-universal':
+                arch = 'darwin-32,darwin-64,darwin-arm64'
+            elif arch == 'toolchain':
+                arch = 'darwin-64' # Should probably based on the host
+            elif self.m64_only:
+                arch = 'darwin-64,darwin-arm64'
+            elif self.m32_only:
+                arch = 'darwin-32'
 
-                self.rm_if_exists(workspace_x86)
-                self.rm_if_exists(workspace_x64)
+            archs = arch.split(',')
+            if (len(archs) > 1 and self.needs_lipo):
+                validArchs = ['darwin-32', 'darwin-64', 'darwin-arm64']
+                workspaces = dict()
+                installPrefixes = dict()
+                for subArch in archs:
+                    if subArch not in validArchs:
+                        error('Trying to build invalid architecture %s' %
+                              subArch)
+                    prefix = '-x' if not 'arm' in subArch else '-'
 
-                shutil.move(workspace, workspace_x86)
-                self.shadow_copy(workspace_x86, workspace_x64)
+                    installPrefixes[subArch] = prefix + subArch[len('darwin-'):]
+                    workspaces[subArch] = workspace + installPrefixes[subArch]
+                    self.rm_if_exists(workspaces[subArch])
 
-                self.link(workspace_x86, workspace)
-                stagedir_x32 = self.do_build(
-                    'darwin-32', os.path.join(self.profile.bockbuild.scratch, self.name + '-x86.install'))
+                firstArch = archs[0]
+                shutil.move(workspace, workspaces[firstArch])
+                for subArch in archs[1:]:
+                    self.shadow_copy(workspaces[firstArch], workspaces[subArch])
 
-                self.link(workspace_x64, workspace)
-                package_stage = self.do_build(
-                    'darwin-64', os.path.join(self.profile.bockbuild.scratch, self.name + '-x64.install'))
+                stages = []
+                package_stage = None
+                for subArch in archs:
+                    self.link(workspaces[subArch], workspace)
+                    stages.append(self.do_build(
+                        subArch, os.path.join(self.profile.bockbuild.scratch, self.name + installPrefixes[subArch] + '.install'))
 
                 delete(workspace)
-                shutil.move(workspace_x86, workspace)
+                shutil.move(workspaces[firstArch], workspace)
 
                 print 'lipo', self.name
 
-                self.lipo_dirs(stagedir_x32, package_stage, 'lib')
-                self.copy_side_by_side(
-                    stagedir_x32, package_stage, 'bin', '32', '64')
-            elif arch == 'toolchain':
-                package_stage = self.do_build('darwin-64')
-            elif self.m64_only:
-                package_stage = self.do_build('darwin-64')
-            elif self.m32_only:
-                package_stage = self.do_build('darwin-32')
+                package_stage = stages[-1]
+                self.lipo_dirs(package_stage, stages[:-1], 'lib')
+
+                # Need to investigate this part, I'm not 100% sure how to resolve it
+                #self.copy_side_by_side(
+                #    stagedir_x32, package_stage, 'bin', '32', '64')
             else:
                 package_stage = self.do_build(arch)
 
@@ -771,43 +788,52 @@ class Package:
         Package.configure(self)
         Package.make(self)
 
-    def lipo_dirs(self, dir_64, dir_32, bin_subdir, replace_32=True):
-        dir64_bin = os.path.join(dir_64, bin_subdir)
-        dir32_bin = os.path.join(dir_32, bin_subdir)
+    def lipo_dirs(self, dir_first, dir_others, bin_subdir):
+        dir_first_bin = os.path.join(dir_first, bin_subdir)
+        dir_others_bin = [os.path.join(dir, bin_subdir) for dir in dir_others]
         lipo_dir = tempfile.mkdtemp()
         lipo_bin = os.path.join(lipo_dir, bin_subdir)
 
-        if not os.path.exists(dir64_bin):
+        if not os.path.exists(dir_others_bin[0]):
             return  # we don't always have bin/lib dirs
 
         if not os.path.exists(lipo_bin):
             os.mkdir(lipo_bin)
 
-        # take each 64-bit binary, lipo with binary of same name
+        # take each binary, lipo with binary of same name
 
-        for root, dirs, filelist in os.walk(dir64_bin):
-            relpath = os.path.relpath(root, dir64_bin)
+        for root, dirs, filelist in os.walk(dir_others_bin[0]):
+            relpath = os.path.relpath(root, dir_others_bin[0])
             for file in filelist:
                 if file.endswith('.a') or file.endswith('.dylib') or file.endswith('.so'):
-                    dir64_file = os.path.join(dir64_bin, relpath, file)
-                    dir32_file = os.path.join(dir32_bin, relpath, file)
+                    lipo_input_files = []
+                    file_first_dir = os.path.join(dir_first_bin, relpath, file)
+                    if os.path.exists(file_first_dir):
+                        lipo_input_files.append(file_first_dir)
+                    
+                    for other_dir_bin in dir_others_bin:
+                        file_other_dir = os.path.join(other_dir_bin)
+                        if os.path.exists(file_other_dir):
+                            lipo_input_files.append(file_other_dir)
+
                     lipo_file = os.path.join(lipo_bin, relpath, file)
-                    if os.path.exists(dir32_file):
+                    if len(lipo_input_files) > 1:
                         if not os.path.exists(os.path.join(lipo_bin, relpath)):
                             os.makedirs(os.path.join(lipo_bin, relpath))
 
-                        if os.path.islink(dir64_file):
-                            continue
-                        lipo_cmd = 'lipo -create %s %s -output %s ' % (
-                            dir64_file, dir32_file, lipo_file)
+                        for lipo_input_file in lipo_input_files:
+                            if os.path.islink(lipo_input_file):
+                                continue
+
+                        lipo_cmd = 'lipo -create %s -output %s ' % (
+                            ' '.join(lipo_input_files), lipo_file)
                         # print lipo_cmd
                         run_shell(lipo_cmd)
-                        if replace_32:
-                            # replace all 32-bit binaries with the new fat
-                            # binaries
-                            shutil.move(lipo_file, dir32_file)
+                            
+                        # replace the first binary with the old binary
+                        shutil.move(lipo_file, file_first_dir)
                     else:
-                        warn("lipo: 32-bit version of file %s not found" % file)
+                        warn("lipo: Only one version of file %s was found" % file)
 
     #creates a deep hardlink copy of a directory
     def shadow_copy (self, source, dest, exclude_git = False):
