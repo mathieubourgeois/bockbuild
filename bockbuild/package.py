@@ -540,7 +540,7 @@ class Package:
                 #self.copy_side_by_side(
                 #    stagedir_x32, package_stage, 'bin', '32', '64')
             else:
-                package_stage = self.do_build(arch)
+                package_stage = self.do_build(archs[0])
 
             self.make_artifact(package_stage, build_artifact)
         for target in self.deploy_requests:

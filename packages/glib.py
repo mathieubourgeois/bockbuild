@@ -43,8 +43,12 @@ class GlibPackage (GnomeXzPackage):
     def arch_build(self, arch):
         Package.profile.arch_build(arch, self)
         if arch == 'darwin-universal':  # multi-arch  build pass
-            self.local_ld_flags = ['-arch i386', '-arch x86_64']
-            self.local_gcc_flags = ['-arch i386', '-arch x86_64', '-Os']
+            self.local_ld_flags = ['-arch i386', '-arch x86_64', '-arch arm64']
+            self.local_gcc_flags = ['-arch i386', '-arch x86_64', '-arch arm64', '-Os']
+            self.local_configure_flags.extend(['--disable-dependency-tracking'])
+        if arch == 'darwin-universal64':
+            self.local_ld_flags = ['-arch x86_64', '-arch arm64']
+            self.local_gcc_flags = ['-arch x86_64', '-arch arm64', '-Os']
             self.local_configure_flags.extend(['--disable-dependency-tracking'])
         else:
             Package.arch_build(self, arch)

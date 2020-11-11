@@ -133,8 +133,11 @@ class DarwinProfile (UnixProfile):
 
     def arch_build(self, arch, package):
         if arch == 'darwin-universal':
-            package.local_ld_flags = ['-arch i386', '-arch x86_64']
-            package.local_gcc_flags = ['-arch i386', '-arch x86_64']
+            package.local_ld_flags = ['-arch i386', '-arch x86_64', '-arch arm64']
+            package.local_gcc_flags = ['-arch i386', '-arch x86_64', '-arch arm64']
+        elif arch == 'darwin-universal64':
+            package.local_ld_flags = ['-arch x86_64', '-arch arm64']
+            package.local_gcc_flags = ['-arch x86_64', '-arch arm64']
         elif arch == 'darwin-32':
             package.local_ld_flags = ['-arch i386', '-m32']
             package.local_gcc_flags = ['-arch i386', '-m32']
@@ -145,6 +148,11 @@ class DarwinProfile (UnixProfile):
             package.local_gcc_flags = ['-arch x86_64 -m64']
             package.local_configure_flags = [
                 '--build=x86_64-apple-darwin13.0.0', '--host=x86_64-apple-darwin13.0.0', '--disable-dependency-tracking']
+        elif arch == 'darwin-arm64':
+            package.local_ld_flags = ['-arch arm64 -m64']
+            package.local_gcc_flags = ['-arch arm64 -m64']
+            package.local_configure_flags = [
+                '--build=aarch64-apple-darwin20.0.0', '--host=aarch64-apple-darwin20.0.0', '--disable-dependency-tracking']
         else:
             error('Unknown arch %s' % arch)
 
