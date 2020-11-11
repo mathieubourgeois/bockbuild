@@ -490,15 +490,18 @@ class Package:
             
             # Check which archs are actually needed
             if arch == 'darwin-universal':
-                arch = 'darwin-32,darwin-64,darwin-arm64'
+                archs = ['darwin-32', 'darwin-64', 'darwin-arm64']
+            elif arch == 'darwin-universal64':
+                archs = ['darwin-64', 'darwin-arm64']
             elif arch == 'toolchain':
-                arch = 'darwin-64' # Should probably based on the host
+                archs = ['darwin-64'] # Should probably based on the host
             elif self.m64_only:
-                arch = 'darwin-64,darwin-arm64'
+                archs = ['darwin-64', 'darwin-arm64']
             elif self.m32_only:
-                arch = 'darwin-32'
+                archs = ['darwin-32']
+            else
+                archs = [arch]
 
-            archs = arch.split(',')
             if (len(archs) > 1 and self.needs_lipo):
                 validArchs = ['darwin-32', 'darwin-64', 'darwin-arm64']
                 workspaces = dict()
