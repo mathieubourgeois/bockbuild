@@ -523,7 +523,7 @@ class Package:
                 for subArch in archs:
                     self.link(workspaces[subArch], workspace)
                     stages.append(self.do_build(
-                        subArch, os.path.join(self.profile.bockbuild.scratch, self.name + installPrefixes[subArch] + '.install')
+                        subArch, os.path.join(self.profile.bockbuild.scratch, self.name + installPrefixes[subArch] + '.install')))
 
                 delete(workspace)
                 shutil.move(workspaces[firstArch], workspace)
