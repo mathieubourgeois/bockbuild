@@ -152,7 +152,7 @@ class DarwinProfile (UnixProfile):
             package.local_ld_flags = ['-arch arm64 -m64']
             package.local_gcc_flags = ['-arch arm64 -m64']
             package.local_configure_flags = [
-                '--build=aarch64-apple-darwin20.0.0', '--host=aarch64-apple-darwin20.0.0', '--disable-dependency-tracking']
+                '--build=x86_64-apple-darwin13.0.0', '--host=aarch64-apple-darwin20.0.0', '--disable-dependency-tracking']
         else:
             error('Unknown arch %s' % arch)
 
